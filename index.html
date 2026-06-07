@@ -488,57 +488,79 @@ if(saved){
 updateUI();
 
 
+function getPulsoidToken(){
+
+    const hash = window.location.hash.substring(1);
+
+    const params = new URLSearchParams(hash);
+
+    return params.get("access_token");
+}
+
+function loginPulsoid(){
+
+    const state = crypto.randomUUID();
+    localStorage.setItem("pulsoid_state", state);
+
+    const params = new URLSearchParams({
+        response_type: "token",
+        client_id: "f47d9659-bc9b-4ae7-9743-ce32ee71c3fa",
+        redirect_uri: "https://lucisarmiger.github.io/Dezoid/",
+        scope: "data:heart_rate:read",
+        state: state
+    });
+
+    window.location.href = "https://pulsoid.net/oauth2/authorize?" + params.toString();
+}
 
 
+if (window.location.hash.includes("access_token")) {
+    history.replaceState(null, "", window.location.pathname);
+}
 
+let token = getPulsoidToken();
 
+// fallback to saved token
+if (!token) {
+    token = localStorage.getItem("pulsoid_token");
+}
 
-const PULSOID_TOKEN = "YOUR_TOKEN_HERE";
+// if we got token from URL, save it
+const urlToken = getPulsoidToken();
 
-const socket = new WebSocket(
-    `wss://dev.pulsoid.net/api/v1/data/real_time?access_token=${PULSOID_TOKEN}`
-);
+if (urlToken) {
+    localStorage.setItem("pulsoid_token", urlToken);
+}
 
-socket.onopen = function () {
-    console.log("Pulsoid connected");
-};
+if(token){
 
-socket.onmessage = function (event) {
+    const socket = new WebSocket(
+        `wss://dev.pulsoid.net/api/v1/data/real_time?access_token=${token}`
+    );
 
-    const data = JSON.parse(event.data);
+    socket.onmessage = (event) => {
 
-    // Pulsoid sends heart rate here:
-    const hr = data?.data?.heart_rate;
+        const data = JSON.parse(event.data);
+        const hr = data?.data?.heart_rate;
 
-    if (hr !== undefined && hr !== null) {
-
-        state.heartrate = hr;
-
-        document.getElementById("heartValue").textContent = hr;
-
-        // still keep persistence if you want refresh memory
-        localStorage.setItem(
-            "controlPanel",
-            JSON.stringify(state)
-        );
-    }
-};
-
-socket.onerror = function (err) {
-    console.log("Pulsoid error:", err);
-};
-
-socket.onclose = function () {
-    console.log("Pulsoid disconnected");
-};
-
-
-
-
-
-
+        if(hr){
+            state.heartrate = hr;
+            document.getElementById("heartValue").textContent = hr;
+        }
+    };
+}
 
 </script>
+
+<button onclick="loginPulsoid()" style="
+position:absolute;
+top:20px;
+right:20px;
+padding:10px 15px;
+z-index:10;
+">
+Connect Heart Rate
+</button>
 
 </body>
 </html>
